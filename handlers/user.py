@@ -11,6 +11,7 @@ from aiogram.fsm.state import StatesGroup, State
 import database
 from keyboards.user_kb import (
     get_main_menu,
+    get_catalog_categories_keyboard,
     get_buy_services_keyboard,
     get_categories_keyboard,
     get_payment_keyboard,
@@ -18,6 +19,7 @@ from keyboards.user_kb import (
     get_profile_kb,
     get_payment_systems_kb
 )
+from keyboards.theme import themed
 from services.payment import PaymentService
 from services.custom_methods import SendCustomMessage, SendCustomPhoto, EditCustomMessageText, EditCustomMessageMedia
 from config import ADMIN_IDS
@@ -30,6 +32,7 @@ IMG_BUY = "https://i.ibb.co/5x8RpBBz/image.png"
 router = Router()
 
 class UserBuy(StatesGroup):
+    waiting_for_catalog_category = State()
     waiting_for_service = State()
     waiting_for_category = State()
     waiting_for_quantity = State()
@@ -97,61 +100,180 @@ async def callback_user_to_menu(callback: CallbackQuery, state: FSMContext):
         ))
     await callback.answer()
 
+PRIVACY_POLICY_TEXT = (
+    "🔒 <b>Политика конфиденциальности — Funeral Shop</b>\n\n"
+
+    "<b>1. Какие данные мы собираем</b>\n"
+    "При использовании бота мы сохраняем:\n"
+    "• Ваш Telegram ID и имя пользователя\n"
+    "• Историю покупок и пополнений баланса\n"
+    "• Сообщения, отправленные в поддержку\n\n"
+
+    "<b>2. Зачем мы это делаем</b>\n"
+    "Данные используются исключительно для работы магазина: обработки заказов, ведения баланса и ответов на обращения в поддержку. "
+    "Мы не продаём и не передаём ваши данные третьим лицам.\n\n"
+
+    "<b>3. Платежи</b>\n"
+    "Бот не хранит реквизиты карт, номера кошельков или ключи доступа. "
+    "Все транзакции обрабатываются через сторонние сервисы (CryptoBot, xRocket) по их собственной политике безопасности.\n\n"
+
+    "<b>4. Хранение и удаление</b>\n"
+    "Данные хранятся на защищённом сервере. Если вы хотите удалить свой аккаунт и все связанные данные — обратитесь в поддержку.\n\n"
+
+    "<b>5. Согласие</b>\n"
+    "Нажимая /start или совершая покупку, вы подтверждаете, что ознакомились с политикой конфиденциальности и согласны с ней."
+)
+
+USER_AGREEMENT_TEXT = (
+    "📄 <b>Пользовательское соглашение — Funeral Shop</b>\n\n"
+
+    "<b>1. Общее</b>\n"
+    "Используя этот бот, вы автоматически соглашаетесь с настоящим соглашением. "
+    "Если вы не согласны с каким-либо пунктом — пожалуйста, воздержитесь от использования магазина.\n\n"
+
+    "<b>2. Что мы продаём</b>\n"
+    "Магазин реализует цифровые товары: аккаунты, файлы и другие данные. "
+    "Все товары проверяются перед добавлением в каталог, однако мы не гарантируем их работоспособность после передачи покупателю.\n\n"
+
+    "<b>3. Возвраты</b>\n"
+    "После выдачи товара возврат средств не производится. "
+    "Исключение — технический сбой на нашей стороне, подтверждённый администрацией. "
+    "В спорных ситуациях обращайтесь в поддержку.\n\n"
+
+    "<b>4. Ответственность покупателя</b>\n"
+    "Вы несёте полную ответственность за то, как используете приобретённые товары. "
+    "Администрация не несёт ответственности за блокировки, санкции или иные последствия со стороны третьих платформ.\n\n"
+
+    "<b>5. Запрещённые действия</b>\n"
+    "Строго запрещено:\n"
+    "• Инициировать чарджбэк (возврат через платёжный сервис)\n"
+    "• Использовать промокоды повторно или передавать их другим\n"
+    "• Создавать фиктивные обращения в поддержку\n"
+    "• Любые попытки обмана или злоупотребления системой\n"
+    "При нарушении — аккаунт блокируется без предупреждения и возврата средств.\n\n"
+
+    "<b>6. Изменения соглашения</b>\n"
+    "Администрация вправе обновлять условия соглашения. "
+    "Актуальная версия всегда доступна через кнопку в главном меню."
+)
+
+@router.callback_query(F.data == "privacy_policy")
+async def process_privacy_policy(callback: CallbackQuery):
+    back_kb = {
+        "inline_keyboard": [[{
+            "text": "Назад в меню",
+            "callback_data": "user_to_menu",
+            "icon_custom_emoji_id": "5877536313623711363"
+        }]]
+    }
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
+    await callback.message.bot(SendCustomMessage(
+        chat_id=callback.message.chat.id,
+        text=PRIVACY_POLICY_TEXT,
+        parse_mode="HTML",
+        reply_markup=back_kb
+    ))
+    await callback.answer()
+
+@router.callback_query(F.data == "user_agreement")
+async def process_user_agreement(callback: CallbackQuery):
+    back_kb = {
+        "inline_keyboard": [[{
+            "text": "Назад в меню",
+            "callback_data": "user_to_menu",
+            "icon_custom_emoji_id": "5877536313623711363"
+        }]]
+    }
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
+    await callback.message.bot(SendCustomMessage(
+        chat_id=callback.message.chat.id,
+        text=USER_AGREEMENT_TEXT,
+        parse_mode="HTML",
+        reply_markup=back_kb
+    ))
+    await callback.answer()
+
 @router.callback_query(F.data == "check_stock")
 async def process_check_stock(callback: CallbackQuery):
     """Обработка кнопки 'Наличие товаров' с умной псевдографикой."""
-    services = await database.get_services()
-    service_blocks = []
+    categories = await database.get_all_categories()
+    catalog_blocks = []
 
-    for service in services:
+    async def build_service_block(service: dict):
         accounts = await database.get_available_accounts(service["id"])
 
         if service.get("type", "text") == "file":
             count = len(accounts)
             if count == 0:
-                continue
+                return None
             price = service["base_price"]
-            service_block = [
-                f"🔹 <b>{service['name']}</b>",
+            return (
+                f"🔹 <b>{service['name']}</b>\n"
                 f"╰ 📁 <b>В наличии:</b> <code>{count}</code> <b>шт. -</b> <code>{price:.2f}$</code>"
-            ]
-            service_blocks.append("\n".join(service_block))
-        else:
-            categories = database.group_accounts_by_category(service["base_price"], accounts)
+            )
 
-            active_categories = {name: info for name, info in categories.items() if len(info["accounts"]) > 0}
+        aging = database.group_accounts_by_category(service["base_price"], accounts)
+        active = {name: info for name, info in aging.items() if len(info["accounts"]) > 0}
+        if not active:
+            return None
 
-            if not active_categories:
-                continue
+        service_block = [f"🔹 <b>{service['name']}</b>"]
+        cat_items = list(active.items())
+        num_cats = len(cat_items)
 
-            service_block = [f"🔹 <b>{service['name']}</b>"]
-            cat_items = list(active_categories.items())
-            num_cats = len(cat_items)
+        for idx, (cat_name, info) in enumerate(cat_items):
+            count = len(info["accounts"])
+            price = info["price"]
+            display_name = "Свежие (0-12ч)" if cat_name == "Свежие" else f"{cat_name} отлёжка"
 
-            for idx, (cat_name, info) in enumerate(cat_items):
-                count = len(info["accounts"])
-                price = info["price"]
-                display_name = "Свежие (0-12ч)" if cat_name == "Свежие" else f"{cat_name} отлёжка"
+            if num_cats == 1:
+                prefix = "╰"
+            elif idx == 0:
+                prefix = "╭"
+            elif idx == num_cats - 1:
+                prefix = "╰"
+            else:
+                prefix = "├"
 
-                if num_cats == 1:
-                    prefix = "╰"
-                else:
-                    if idx == 0:
-                        prefix = "╭"
-                    elif idx == num_cats - 1:
-                        prefix = "╰"
-                    else:
-                        prefix = "├"
+            service_block.append(
+                f"{prefix} 🔸 <b>[{display_name}]:</b> <code>{count}</code> <b>шт. -</b> <code>{price:.2f}$</code>"
+            )
+        return "\n".join(service_block)
 
-                service_block.append(f"{prefix} 🔸 <b>[{display_name}]:</b> <code>{count}</code> <b>шт. -</b> <code>{price:.2f}$</code>")
+    for category in categories:
+        services = await database.get_services_by_category(category["id"])
+        service_blocks = []
+        for service in services:
+            block = await build_service_block(service)
+            if block:
+                service_blocks.append(block)
+        if service_blocks:
+            catalog_blocks.append(
+                f"<b>📂 {category['name']}</b>\n\n" + "\n───\n".join(service_blocks)
+            )
 
-            service_blocks.append("\n".join(service_block))
+    uncategorized = await database.get_services_without_category()
+    uncategorized_blocks = []
+    for service in uncategorized:
+        block = await build_service_block(service)
+        if block:
+            uncategorized_blocks.append(block)
+    if uncategorized_blocks:
+        catalog_blocks.append(
+            "<b>📂 Без категории</b>\n\n" + "\n───\n".join(uncategorized_blocks)
+        )
 
     title = '<tg-emoji emoji-id="5967456680940671207">🗃</tg-emoji> <b>Наличие товаров</b>'
-    if not service_blocks:
+    if not catalog_blocks:
         text = f"{title}\n\n<b>К сожалению, на данный момент товаров нет в наличии.</b>"
     else:
-        text = f"{title}\n\n" + "\n───\n".join(service_blocks)
+        text = f"{title}\n\n" + "\n\n════════\n\n".join(catalog_blocks)
 
     back_kb = {
         "inline_keyboard": [[{
@@ -329,50 +451,62 @@ async def process_activate_promo_code(message: Message, state: FSMContext):
             parse_mode="HTML"
         )
 
-@router.callback_query(F.data == "buy_accounts")
-async def process_buy_accounts(callback: CallbackQuery, state: FSMContext):
-    """Шаг 1: Выбор сервиса."""
-    await state.clear()
-    await state.set_state(UserBuy.waiting_for_service)
-
-    services = await database.get_services()
-    if not services:
-        back_kb = {
-            "inline_keyboard": [[{
-                "text": "Назад в меню",
-                "callback_data": "user_to_menu",
-                "icon_custom_emoji_id": "5877536313623711363"
-            }]]
-        }
-        await callback.message.bot(EditCustomMessageMedia(
-            chat_id=callback.message.chat.id,
-            message_id=callback.message.message_id,
-            media={"type": "photo", "media": IMG_BUY, "caption": "⚠️ В магазине пока нет доступных услуг.", "parse_mode": "HTML"},
-            reply_markup=back_kb
-        ))
-        await callback.answer()
-        return
-
+async def _services_available_counts(services: list) -> dict:
     available_counts = {}
-    has_available = False
     for service in services:
-        count = await database.get_available_accounts_count(service["id"])
-        available_counts[service["id"]] = count
-        if count > 0:
+        available_counts[service["id"]] = await database.get_available_accounts_count(service["id"])
+    return available_counts
+
+def _catalog_back_callback(data: dict) -> str:
+    catalog_category_id = data.get("catalog_category_id")
+    if catalog_category_id == "none":
+        return "catalog_cat_none"
+    if catalog_category_id is not None:
+        return f"catalog_cat_{catalog_category_id}"
+    return "catalog"
+
+@router.callback_query(F.data == "catalog")
+@router.callback_query(F.data == "buy_accounts")
+async def process_catalog(callback: CallbackQuery, state: FSMContext):
+    """Шаг 1: Выбор категории каталога."""
+    await state.clear()
+    await state.set_state(UserBuy.waiting_for_catalog_category)
+
+    categories = await database.get_all_categories()
+    category_counts = {}
+    has_available = False
+
+    for category in categories:
+        services = await database.get_services_by_category(category["id"])
+        total = 0
+        for service in services:
+            count = await database.get_available_accounts_count(service["id"])
+            total += count
+        category_counts[category["id"]] = total
+        if total > 0:
             has_available = True
 
+    uncategorized = await database.get_services_without_category()
+    uncategorized_count = 0
+    for service in uncategorized:
+        count = await database.get_available_accounts_count(service["id"])
+        uncategorized_count += count
+    if uncategorized_count > 0:
+        has_available = True
+
+    back_kb = {
+        "inline_keyboard": [[{
+            "text": "Назад в меню",
+            "callback_data": "user_to_menu",
+            "icon_custom_emoji_id": "5877536313623711363"
+        }]]
+    }
+
     if not has_available:
-        back_kb = {
-            "inline_keyboard": [[{
-                "text": "Назад в меню",
-                "callback_data": "user_to_menu",
-                "icon_custom_emoji_id": "5877536313623711363"
-            }]]
-        }
         await callback.message.bot(EditCustomMessageMedia(
             chat_id=callback.message.chat.id,
             message_id=callback.message.message_id,
-            media={"type": "photo", "media": IMG_BUY, "caption": "⚠️ В магазине пока нет доступных товаров.", "parse_mode": "HTML"},
+            media={"type": "photo", "media": IMG_BUY, "caption": "⚠️ В каталоге пока нет доступных товаров.", "parse_mode": "HTML"},
             reply_markup=back_kb
         ))
         await callback.answer()
@@ -381,16 +515,82 @@ async def process_buy_accounts(callback: CallbackQuery, state: FSMContext):
     await callback.message.bot(EditCustomMessageMedia(
         chat_id=callback.message.chat.id,
         message_id=callback.message.message_id,
-        media={"type": "photo", "media": IMG_BUY, "caption": '<tg-emoji emoji-id="5258200019495821936">🗳</tg-emoji> <b>Выбери интересующий сервис:</b>', "parse_mode": "HTML"},
-        reply_markup=get_buy_services_keyboard(services, available_counts)
+        media={
+            "type": "photo",
+            "media": IMG_BUY,
+            "caption": '<tg-emoji emoji-id="5258200019495821936">🗳</tg-emoji> <b>Выбери категорию:</b>',
+            "parse_mode": "HTML"
+        },
+        reply_markup=get_catalog_categories_keyboard(categories, category_counts, uncategorized_count)
+    ))
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("catalog_cat_"))
+async def process_catalog_category_select(callback: CallbackQuery, state: FSMContext):
+    """Шаг 2: Выбор товара внутри категории каталога."""
+    raw_id = callback.data.replace("catalog_cat_", "", 1)
+
+    if raw_id == "none":
+        catalog_category_id = "none"
+        category_title = "Без категории"
+        services = await database.get_services_without_category()
+    else:
+        catalog_category_id = int(raw_id)
+        category = await database.get_category_by_id(catalog_category_id)
+        if not category:
+            await callback.answer("❌ Категория не найдена!", show_alert=True)
+            return
+        category_title = category["name"]
+        services = await database.get_services_by_category(catalog_category_id)
+
+    available_counts = await _services_available_counts(services)
+    has_available = any(count > 0 for count in available_counts.values())
+
+    if not has_available:
+        back_kb = {
+            "inline_keyboard": [[{
+                "text": "К каталогу",
+                "callback_data": "catalog",
+                "icon_custom_emoji_id": "5877536313623711363"
+            }]]
+        }
+        await callback.message.bot(EditCustomMessageMedia(
+            chat_id=callback.message.chat.id,
+            message_id=callback.message.message_id,
+            media={
+                "type": "photo",
+                "media": IMG_BUY,
+                "caption": f"⚠️ В категории <b>{category_title}</b> пока нет доступных товаров.",
+                "parse_mode": "HTML"
+            },
+            reply_markup=back_kb
+        ))
+        await callback.answer()
+        return
+
+    await state.update_data(catalog_category_id=catalog_category_id, catalog_category_title=category_title)
+    await state.set_state(UserBuy.waiting_for_service)
+
+    await callback.message.bot(EditCustomMessageMedia(
+        chat_id=callback.message.chat.id,
+        message_id=callback.message.message_id,
+        media={
+            "type": "photo",
+            "media": IMG_BUY,
+            "caption": f'<tg-emoji emoji-id="5258200019495821936">🗳</tg-emoji> <b>{category_title}</b>\n\nВыбери товар:',
+            "parse_mode": "HTML"
+        },
+        reply_markup=get_buy_services_keyboard(services, available_counts, back_callback="catalog")
     ))
     await callback.answer()
 
 @router.callback_query(F.data.startswith("buy_serv_"), UserBuy.waiting_for_service)
 async def process_buy_service_select(callback: CallbackQuery, state: FSMContext):
-    """Шаг 2: Выбор категории отлёжки или переход к выбору количества (для файлов)."""
+    """Шаг 3: Выбор категории отлёжки или переход к выбору количества (для файлов)."""
     service_id = int(callback.data.split("_")[2])
     service = await database.get_service_by_id(service_id)
+    data = await state.get_data()
+    back_callback = _catalog_back_callback(data)
 
     if not service:
         await callback.answer("❌ Сервис не найден!", show_alert=True)
@@ -400,8 +600,8 @@ async def process_buy_service_select(callback: CallbackQuery, state: FSMContext)
     if not accounts:
         back_kb = {
             "inline_keyboard": [[{
-                "text": "К списку услуг",
-                "callback_data": "buy_accounts",
+                "text": "К списку товаров",
+                "callback_data": back_callback,
                 "icon_custom_emoji_id": "5877536313623711363"
             }]]
         }
@@ -432,7 +632,7 @@ async def process_buy_service_select(callback: CallbackQuery, state: FSMContext)
         cancel_kb = {
             "inline_keyboard": [[{
                 "text": "Отменить покупку",
-                "callback_data": "buy_accounts",
+                "callback_data": back_callback,
                 "icon_custom_emoji_id": "5778527486270770928"
             }]]
         }
@@ -460,8 +660,8 @@ async def process_buy_service_select(callback: CallbackQuery, state: FSMContext)
     if not active_categories:
         back_kb = {
             "inline_keyboard": [[{
-                "text": "К списку услуг",
-                "callback_data": "buy_accounts",
+                "text": "К списку товаров",
+                "callback_data": back_callback,
                 "icon_custom_emoji_id": "5877536313623711363"
             }]]
         }
@@ -496,18 +696,19 @@ async def process_buy_service_select(callback: CallbackQuery, state: FSMContext)
             "caption": f'<tg-emoji emoji-id="5877485980901971030">📊</tg-emoji> <b>Выбери категорию отлёжки для {service["name"]}:</b>',
             "parse_mode": "HTML"
         },
-        reply_markup=get_categories_keyboard(service_id, active_categories)
+        reply_markup=get_categories_keyboard(service_id, active_categories, back_callback=back_callback)
     ))
     await callback.answer()
 
 @router.callback_query(F.data.startswith("buy_cat_"), UserBuy.waiting_for_category)
 async def process_buy_category_select(callback: CallbackQuery, state: FSMContext):
-    """Шаг 3: Ввод количества аккаунтов для текстовых товаров."""
+    """Шаг 4: Ввод количества аккаунтов для текстовых товаров."""
     cat_idx = int(callback.data.split("_")[2])
 
     data = await state.get_data()
     categories = data["categories"]
     service_name = data["service_name"]
+    back_callback = _catalog_back_callback(data)
 
     cat_keys = list(categories.keys())
     if cat_idx >= len(cat_keys):
@@ -531,7 +732,7 @@ async def process_buy_category_select(callback: CallbackQuery, state: FSMContext
     cancel_kb = {
         "inline_keyboard": [[{
             "text": "Отменить покупку",
-            "callback_data": "buy_accounts",
+            "callback_data": back_callback,
             "icon_custom_emoji_id": "5778527486270770928"
         }]]
     }

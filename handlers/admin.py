@@ -10,7 +10,15 @@ from aiogram.fsm.state import StatesGroup, State
 
 from config import ADMIN_IDS
 import database
-from keyboards.admin_kb import get_admin_menu, get_services_keyboard, get_service_edit_menu
+from keyboards.admin_kb import (
+    get_admin_menu,
+    get_services_keyboard,
+    get_service_edit_menu,
+    get_categories_manage_keyboard,
+    get_category_edit_menu,
+    get_category_pick_keyboard,
+)
+from keyboards.theme import themed
 from services.custom_methods import SendCustomMessage, SendCustomPhoto, EditCustomMessageText, EditCustomMessageMedia
 
 logger = logging.getLogger(__name__)
@@ -59,7 +67,7 @@ async def send_upload_summary_after_delay(message: Message, state: FSMContext, u
             f"Пришли еще файлы или нажми кнопку ниже для завершения:"
         )
 
-        await message.answer(text, reply_markup=done_kb, parse_mode="HTML")
+        await message.answer(text, reply_markup=themed(done_kb), parse_mode="HTML")
     except asyncio.CancelledError:
         pass
     except Exception as e:
@@ -71,6 +79,7 @@ IMG_ADMIN = "https://i.ibb.co/yBhjvr7V/image.png"
 
 class AdminAddAccount(StatesGroup):
     waiting_for_type = State()
+    waiting_for_category = State()
     waiting_for_service_name = State()
     waiting_for_base_price = State()
     waiting_for_credentials = State()
@@ -78,6 +87,10 @@ class AdminAddAccount(StatesGroup):
 class AdminEditService(StatesGroup):
     waiting_for_new_price = State()
     waiting_for_new_credentials = State()
+
+class AdminCategory(StatesGroup):
+    waiting_for_name = State()
+    waiting_for_rename = State()
 
 class AdminPromo(StatesGroup):
     waiting_for_promo_data = State()
@@ -206,9 +219,41 @@ async def start_add_account(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data.startswith("adm_addtype_"), F.from_user.id.in_(ADMIN_IDS))
 async def process_add_type(callback: CallbackQuery, state: FSMContext):
-    """Шаг 2: Запрос названия сервиса."""
+    """Шаг 2: Выбор категории каталога для товара."""
     service_type = callback.data.split("_")[2]
     await state.update_data(service_type=service_type)
+    await state.set_state(AdminAddAccount.waiting_for_category)
+
+    categories = await database.get_all_categories()
+    await callback.message.bot(EditCustomMessageMedia(
+        chat_id=callback.message.chat.id,
+        message_id=callback.message.message_id,
+        media={
+            "type": "photo",
+            "media": IMG_ADMIN,
+            "caption": "<b><tg-emoji emoji-id=\"5967456680940671207\">📂</tg-emoji> Выбери категорию для товара:</b>",
+            "parse_mode": "HTML"
+        },
+        reply_markup=get_category_pick_keyboard(categories, prefix="adm_addcat_", include_none=True)
+    ))
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("adm_addcat_"), AdminAddAccount.waiting_for_category, F.from_user.id.in_(ADMIN_IDS))
+async def process_add_category_pick(callback: CallbackQuery, state: FSMContext):
+    """Шаг 3: Запрос названия сервиса после выбора категории."""
+    raw_id = callback.data.replace("adm_addcat_", "", 1)
+    if raw_id == "none":
+        category_id = None
+        category_name = "Без категории"
+    else:
+        category_id = int(raw_id)
+        category = await database.get_category_by_id(category_id)
+        if not category:
+            await callback.answer("❌ Категория не найдена!", show_alert=True)
+            return
+        category_name = category["name"]
+
+    await state.update_data(category_id=category_id, category_name=category_name)
     await state.set_state(AdminAddAccount.waiting_for_service_name)
 
     cancel_kb = {
@@ -221,7 +266,13 @@ async def process_add_type(callback: CallbackQuery, state: FSMContext):
     await callback.message.bot(EditCustomMessageMedia(
         chat_id=callback.message.chat.id,
         message_id=callback.message.message_id,
-        media={"type": "photo", "media": IMG_ADMIN, "caption": "<b><tg-emoji emoji-id=\"5879841310902324730\">📝</tg-emoji> Введи название сервиса (например: Carousell):</b>", "parse_mode": "HTML"},
+        media={
+            "type": "photo",
+            "media": IMG_ADMIN,
+            "caption": f"<b><tg-emoji emoji-id=\"5879841310902324730\">📝</tg-emoji> Категория: {category_name}</b>\n\n"
+                       f"<b>Введи название сервиса (например: Carousell):</b>",
+            "parse_mode": "HTML"
+        },
         reply_markup=cancel_kb
     ))
     await callback.answer()
@@ -289,8 +340,9 @@ async def process_base_price(message: Message, state: FSMContext):
     data = await state.get_data()
     service_name = data["service_name"]
     service_type = data["service_type"]
+    category_id = data.get("category_id")
 
-    service_id = await database.create_service(service_name, price, service_type)
+    service_id = await database.create_service(service_name, price, service_type, category_id=category_id)
     await state.update_data(service_id=service_id)
 
     await state.set_state(AdminAddAccount.waiting_for_credentials)
@@ -393,13 +445,16 @@ async def show_edit_services(callback: CallbackQuery, state: FSMContext):
         await callback.answer("⚠️ В базе данных пока нет ни одного сервиса!", show_alert=True)
         return
 
-    await callback.message.bot(EditCustomMessageMedia(
-        chat_id=callback.message.chat.id,
-        message_id=callback.message.message_id,
-        media={"type": "photo", "media": IMG_ADMIN, "caption": "<b><tg-emoji emoji-id=\"5877485980901971030\">⚙️</tg-emoji> Выбери сервис для редактирования:</b>", "parse_mode": "HTML"},
-        reply_markup=get_services_keyboard(services)
-    ))
-    await callback.answer()
+    try:
+        await callback.message.bot(EditCustomMessageMedia(
+            chat_id=callback.message.chat.id,
+            message_id=callback.message.message_id,
+            media={"type": "photo", "media": IMG_ADMIN, "caption": "<b><tg-emoji emoji-id=\"5877485980901971030\">⚙️</tg-emoji> Выбери сервис для редактирования:</b>", "parse_mode": "HTML"},
+            reply_markup=get_services_keyboard(services)
+        ))
+        await callback.answer()
+    except Exception:
+        pass
 
 @router.callback_query(F.data.startswith("adm_serv_"), F.from_user.id.in_(ADMIN_IDS))
 async def edit_service_menu(callback: CallbackQuery):
@@ -412,8 +467,15 @@ async def edit_service_menu(callback: CallbackQuery):
         return
 
     count = await database.get_available_accounts_count(service_id)
+    category_name = "Без категории"
+    if service.get("category_id"):
+        category = await database.get_category_by_id(service["category_id"])
+        if category:
+            category_name = category["name"]
+
     text = (
         f"<b><tg-emoji emoji-id=\"5877485980901971030\">⚙️</tg-emoji> Редактирование сервиса: {service['name']}</b>\n\n"
+        f"├ <tg-emoji emoji-id=\"5967456680940671207\">📂</tg-emoji> <b>Категория:</b> <code>{category_name}</code>\n"
         f"├ <tg-emoji emoji-id=\"5778318458802409852\">💰</tg-emoji> <b>Текущая базовая цена:</b> <code>${service['base_price']:.2f}</code>\n"
         f"╰ <tg-emoji emoji-id=\"5967456680940671207\">📦</tg-emoji> <b>В наличии свободных аккаунтов:</b> <code>{count} шт.</code>"
     )
@@ -424,6 +486,259 @@ async def edit_service_menu(callback: CallbackQuery):
         reply_markup=get_service_edit_menu(service_id)
     ))
     await callback.answer()
+
+@router.callback_query(F.data.startswith("adm_setcat_"), F.from_user.id.in_(ADMIN_IDS))
+async def start_set_service_category(callback: CallbackQuery):
+    """Выбор новой категории для сервиса."""
+    service_id = int(callback.data.split("_")[2])
+    service = await database.get_service_by_id(service_id)
+    if not service:
+        await callback.answer("❌ Сервис не найден!", show_alert=True)
+        return
+
+    categories = await database.get_all_categories()
+    await callback.message.bot(EditCustomMessageMedia(
+        chat_id=callback.message.chat.id,
+        message_id=callback.message.message_id,
+        media={
+            "type": "photo",
+            "media": IMG_ADMIN,
+            "caption": f"<b><tg-emoji emoji-id=\"5967456680940671207\">📂</tg-emoji> Выбери категорию для {service['name']}:</b>",
+            "parse_mode": "HTML"
+        },
+        reply_markup=get_category_pick_keyboard(
+            categories,
+            prefix=f"adm_assigncat_{service_id}_",
+            include_none=True,
+            back_callback=f"adm_serv_{service_id}"
+        )
+    ))
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("adm_assigncat_"), F.from_user.id.in_(ADMIN_IDS))
+async def process_assign_service_category(callback: CallbackQuery):
+    """Привязка сервиса к выбранной категории."""
+    parts = callback.data.split("_")
+    # adm_assigncat_{service_id}_{category_id|none}
+    service_id = int(parts[2])
+    raw_cat = parts[3]
+    category_id = None if raw_cat == "none" else int(raw_cat)
+
+    service = await database.get_service_by_id(service_id)
+    if not service:
+        await callback.answer("❌ Сервис не найден!", show_alert=True)
+        return
+
+    if category_id is not None:
+        category = await database.get_category_by_id(category_id)
+        if not category:
+            await callback.answer("❌ Категория не найдена!", show_alert=True)
+            return
+
+    await database.assign_service_to_category(service_id, category_id)
+    await callback.answer("Категория обновлена!", show_alert=True)
+
+    count = await database.get_available_accounts_count(service_id)
+    category_name = "Без категории"
+    if category_id is not None:
+        category = await database.get_category_by_id(category_id)
+        if category:
+            category_name = category["name"]
+
+    text = (
+        f"<b><tg-emoji emoji-id=\"5877485980901971030\">⚙️</tg-emoji> Редактирование сервиса: {service['name']}</b>\n\n"
+        f"├ <tg-emoji emoji-id=\"5967456680940671207\">📂</tg-emoji> <b>Категория:</b> <code>{category_name}</code>\n"
+        f"├ <tg-emoji emoji-id=\"5778318458802409852\">💰</tg-emoji> <b>Текущая базовая цена:</b> <code>${service['base_price']:.2f}</code>\n"
+        f"╰ <tg-emoji emoji-id=\"5967456680940671207\">📦</tg-emoji> <b>В наличии свободных аккаунтов:</b> <code>{count} шт.</code>"
+    )
+    await callback.message.bot(EditCustomMessageMedia(
+        chat_id=callback.message.chat.id,
+        message_id=callback.message.message_id,
+        media={"type": "photo", "media": IMG_ADMIN, "caption": text, "parse_mode": "HTML"},
+        reply_markup=get_service_edit_menu(service_id)
+    ))
+
+@router.callback_query(F.data == "admin_categories", F.from_user.id.in_(ADMIN_IDS))
+async def process_admin_categories(callback: CallbackQuery, state: FSMContext):
+    """Список категорий каталога."""
+    await state.clear()
+    categories = await database.get_all_categories()
+    text = (
+        "<b><tg-emoji emoji-id=\"5967456680940671207\">📂</tg-emoji> Категории каталога</b>\n\n"
+        "Выбери категорию для редактирования или создай новую."
+    )
+    if not categories:
+        text = (
+            "<b><tg-emoji emoji-id=\"5967456680940671207\">📂</tg-emoji> Категории каталога</b>\n\n"
+            "Пока нет ни одной категории. Создай первую!"
+        )
+
+    await callback.message.bot(EditCustomMessageMedia(
+        chat_id=callback.message.chat.id,
+        message_id=callback.message.message_id,
+        media={"type": "photo", "media": IMG_ADMIN, "caption": text, "parse_mode": "HTML"},
+        reply_markup=get_categories_manage_keyboard(categories)
+    ))
+    await callback.answer()
+
+@router.callback_query(F.data == "admin_create_category", F.from_user.id.in_(ADMIN_IDS))
+async def process_create_category_start(callback: CallbackQuery, state: FSMContext):
+    """Начало создания категории."""
+    await state.set_state(AdminCategory.waiting_for_name)
+    cancel_kb = {
+        "inline_keyboard": [[{
+            "text": "Отмена",
+            "callback_data": "admin_categories",
+            "icon_custom_emoji_id": "5778527486270770928"
+        }]]
+    }
+    await callback.message.bot(EditCustomMessageMedia(
+        chat_id=callback.message.chat.id,
+        message_id=callback.message.message_id,
+        media={
+            "type": "photo",
+            "media": IMG_ADMIN,
+            "caption": "<b><tg-emoji emoji-id=\"5879841310902324730\">📝</tg-emoji> Введи название новой категории:</b>",
+            "parse_mode": "HTML"
+        },
+        reply_markup=cancel_kb
+    ))
+    await callback.answer()
+
+@router.message(AdminCategory.waiting_for_name, F.from_user.id.in_(ADMIN_IDS))
+async def process_create_category_name(message: Message, state: FSMContext):
+    """Создание категории по названию."""
+    name = (message.text or "").strip()
+    if not name:
+        await message.answer("<b>❌ Название не может быть пустым. Введи название:</b>", parse_mode="HTML")
+        return
+
+    try:
+        await database.create_category(name)
+    except aiosqlite.IntegrityError:
+        await message.answer("<b>❌ Категория с таким названием уже существует. Введи другое:</b>", parse_mode="HTML")
+        return
+
+    await state.clear()
+    await message.answer(f"<b>✅ Категория <code>{name}</code> создана!</b>", parse_mode="HTML")
+
+    categories = await database.get_all_categories()
+    await message.bot(SendCustomPhoto(
+        chat_id=message.chat.id,
+        photo=IMG_ADMIN,
+        caption="<b><tg-emoji emoji-id=\"5967456680940671207\">📂</tg-emoji> Категории каталога</b>",
+        parse_mode="HTML",
+        reply_markup=get_categories_manage_keyboard(categories)
+    ))
+
+@router.callback_query(F.data.startswith("adm_catview_"), F.from_user.id.in_(ADMIN_IDS))
+async def process_category_menu(callback: CallbackQuery):
+    """Меню конкретной категории."""
+    category_id = int(callback.data.split("_")[2])
+    category = await database.get_category_by_id(category_id)
+    if not category:
+        await callback.answer("❌ Категория не найдена!", show_alert=True)
+        return
+
+    services = await database.get_services_by_category(category_id)
+    text = (
+        f"<b><tg-emoji emoji-id=\"5967456680940671207\">📂</tg-emoji> Категория: {category['name']}</b>\n\n"
+        f"<b>Товаров в категории:</b> <code>{len(services)}</code> шт."
+    )
+    await callback.message.bot(EditCustomMessageMedia(
+        chat_id=callback.message.chat.id,
+        message_id=callback.message.message_id,
+        media={"type": "photo", "media": IMG_ADMIN, "caption": text, "parse_mode": "HTML"},
+        reply_markup=get_category_edit_menu(category_id)
+    ))
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("adm_catrename_"), F.from_user.id.in_(ADMIN_IDS))
+async def process_category_rename_start(callback: CallbackQuery, state: FSMContext):
+    """Начало переименования категории."""
+    category_id = int(callback.data.split("_")[2])
+    category = await database.get_category_by_id(category_id)
+    if not category:
+        await callback.answer("❌ Категория не найдена!", show_alert=True)
+        return
+
+    await state.update_data(category_id=category_id)
+    await state.set_state(AdminCategory.waiting_for_rename)
+    cancel_kb = {
+        "inline_keyboard": [[{
+            "text": "Отмена",
+            "callback_data": f"adm_catview_{category_id}",
+            "icon_custom_emoji_id": "5778527486270770928"
+        }]]
+    }
+    await callback.message.bot(EditCustomMessageMedia(
+        chat_id=callback.message.chat.id,
+        message_id=callback.message.message_id,
+        media={
+            "type": "photo",
+            "media": IMG_ADMIN,
+            "caption": f"<b>Введи новое название для категории <code>{category['name']}</code>:</b>",
+            "parse_mode": "HTML"
+        },
+        reply_markup=cancel_kb
+    ))
+    await callback.answer()
+
+@router.message(AdminCategory.waiting_for_rename, F.from_user.id.in_(ADMIN_IDS))
+async def process_category_rename(message: Message, state: FSMContext):
+    """Сохранение нового названия категории."""
+    name = (message.text or "").strip()
+    if not name:
+        await message.answer("<b>❌ Название не может быть пустым. Введи название:</b>", parse_mode="HTML")
+        return
+
+    data = await state.get_data()
+    category_id = data["category_id"]
+
+    try:
+        await database.update_category_name(category_id, name)
+    except aiosqlite.IntegrityError:
+        await message.answer("<b>❌ Категория с таким названием уже существует. Введи другое:</b>", parse_mode="HTML")
+        return
+
+    await state.clear()
+    await message.answer(f"<b>✅ Категория переименована в <code>{name}</code>!</b>", parse_mode="HTML")
+
+    services = await database.get_services_by_category(category_id)
+    text = (
+        f"<b><tg-emoji emoji-id=\"5967456680940671207\">📂</tg-emoji> Категория: {name}</b>\n\n"
+        f"<b>Товаров в категории:</b> <code>{len(services)}</code> шт."
+    )
+    await message.bot(SendCustomMessage(
+        chat_id=message.chat.id,
+        text=text,
+        parse_mode="HTML",
+        reply_markup=get_category_edit_menu(category_id)
+    ))
+
+@router.callback_query(F.data.startswith("adm_catdel_"), F.from_user.id.in_(ADMIN_IDS))
+async def process_category_delete(callback: CallbackQuery):
+    """Удаление категории (товары остаются без категории)."""
+    category_id = int(callback.data.split("_")[2])
+    category = await database.get_category_by_id(category_id)
+    if not category:
+        await callback.answer("❌ Категория не найдена!", show_alert=True)
+        return
+
+    await database.delete_category(category_id)
+    await callback.answer(f"Категория {category['name']} удалена!", show_alert=True)
+
+    categories = await database.get_all_categories()
+    text = (
+        "<b><tg-emoji emoji-id=\"5967456680940671207\">📂</tg-emoji> Категории каталога</b>\n\n"
+        "Выбери категорию для редактирования или создай новую."
+    )
+    await callback.message.bot(EditCustomMessageMedia(
+        chat_id=callback.message.chat.id,
+        message_id=callback.message.message_id,
+        media={"type": "photo", "media": IMG_ADMIN, "caption": text, "parse_mode": "HTML"},
+        reply_markup=get_categories_manage_keyboard(categories)
+    ))
 
 @router.callback_query(F.data.startswith("adm_editprice_"), F.from_user.id.in_(ADMIN_IDS))
 async def start_edit_price(callback: CallbackQuery, state: FSMContext):
@@ -771,7 +1086,7 @@ async def send_user_info_card(target, user_id: int, edit: bool = False):
         f"╰  <tg-emoji emoji-id=\"5985493993100679671\">🛒</tg-emoji> <b>Куплено аккаунтов:</b> <code>{purchases_count}</code> <b>шт.</b>"
     )
 
-    kb = {
+    kb = themed({
         "inline_keyboard": [
             [
                 {"text": "💰 Изменить баланс", "callback_data": f"admin_usr_change_bal_{user_id}"},
@@ -781,7 +1096,7 @@ async def send_user_info_card(target, user_id: int, edit: bool = False):
                 {"text": "В меню админа", "callback_data": "admin_to_menu", "icon_custom_emoji_id": "5877536313623711363"}
             ]
         ]
-    }
+    })
 
     if edit:
         if isinstance(target, CallbackQuery):
@@ -856,7 +1171,7 @@ async def process_user_info_balance_change_start(callback: CallbackQuery, state:
     await state.update_data(target_user_id=user_id)
     await state.set_state(AdminUserInfoState.waiting_for_balance_change)
 
-    cancel_kb = {"inline_keyboard": [[{"text": "Отмена", "callback_data": f"admin_usr_view_{user_id}"}]]}
+    cancel_kb = themed({"inline_keyboard": [[{"text": "Отмена", "callback_data": f"admin_usr_view_{user_id}"}]]})
     text = (
         f"<b><tg-emoji emoji-id=\"5778318458802409852\">💰</tg-emoji> Изменение баланса (ID: <code>{user_id}</code>)</b>\n\n"
         f"Введи значение для изменения баланса:\n"
@@ -961,7 +1276,7 @@ async def process_user_info_purchase_history(callback: CallbackQuery):
         )
 
     text = "\n\n".join(text_lines)
-    kb = {"inline_keyboard": [[{"text": "К профилю", "callback_data": f"admin_usr_view_{user_id}", "icon_custom_emoji_id": "5877536313623711363"}]]}
+    kb = themed({"inline_keyboard": [[{"text": "К профилю", "callback_data": f"admin_usr_view_{user_id}", "icon_custom_emoji_id": "5877536313623711363"}]]})
 
     try:
         await callback.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
@@ -1010,12 +1325,12 @@ async def process_broadcast_content(message: Message, state: FSMContext):
     await state.update_data(broadcast_data=broadcast_data)
     await state.set_state(AdminBroadcast.waiting_for_broadcast_confirm)
 
-    confirm_kb = {
+    confirm_kb = themed({
         "inline_keyboard": [
             [{"text": "✅ Подтвердить отправку", "callback_data": "admin_broadcast_confirm"}],
             [{"text": "Отмена", "callback_data": "admin_to_menu", "icon_custom_emoji_id": "5778527486270770928"}]
         ]
-    }
+    })
     await message.answer(
         f"<b><tg-emoji emoji-id=\"5988023995125993550\">📢</tg-emoji> Превью рассылки:</b>\n\n{preview}\n\n"
         f"<b><tg-emoji emoji-id=\"5920344347152224466\">👥</tg-emoji> Получателей:</b> <code>{len(user_ids)}</code> <b>чел.</b>\n\n"
@@ -1090,13 +1405,13 @@ async def show_tickets_list(target, edit_msg: Optional[Message] = None):
     tickets = await database.get_open_tickets()
     if not tickets:
         text = "<b><tg-emoji emoji-id=\"5879841310902324730\">🎟</tg-emoji> Неотвеченных обращений в поддержку не найдено!</b>"
-        kb = {
+        kb = themed({
             "inline_keyboard": [[{
                 "text": "В меню админа",
                 "callback_data": "admin_to_menu",
                 "icon_custom_emoji_id": "5877536313623711363"
             }]]
-        }
+        })
         if edit_msg:
             try:
                 await edit_msg.edit_text(text, parse_mode="HTML", reply_markup=kb)
@@ -1128,7 +1443,7 @@ async def show_tickets_list(target, edit_msg: Optional[Message] = None):
     keyboard.append([{"text": "В меню админа", "callback_data": "admin_to_menu", "icon_custom_emoji_id": "5877536313623711363"}])
 
     text = "<b><tg-emoji emoji-id=\"5879841310902324730\">🎟</tg-emoji> Список открытых обращений в поддержку:</b>"
-    kb = {"inline_keyboard": keyboard}
+    kb = themed({"inline_keyboard": keyboard})
 
     if edit_msg:
         try:
@@ -1183,7 +1498,7 @@ async def callback_admin_view_ticket(callback: CallbackQuery):
         f"<b>{ticket['message_text'] if ticket['message_text'] else '(без текста)'}</b>"
     )
 
-    ticket_kb = {
+    ticket_kb = themed({
         "inline_keyboard": [
             [
                 {"text": "Ответить", "callback_data": f"admin_reply_ticket_{ticket_id}", "icon_custom_emoji_id": "5879841310902324730"},
@@ -1196,7 +1511,7 @@ async def callback_admin_view_ticket(callback: CallbackQuery):
                 {"text": "Назад к списку", "callback_data": "admin_tickets_list", "icon_custom_emoji_id": "5877536313623711363"}
             ]
         ]
-    }
+    })
 
     if ticket["media_type"] == "photo" and ticket["file_id"]:
         await callback.message.delete()

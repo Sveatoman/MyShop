@@ -1,8 +1,10 @@
 import aiosqlite
+import asyncio
 import time
 import os
 import string
 import random
+import datetime
 from typing import List, Dict, Any, Optional
 from config import PRICE_INCREMENT_PER_12H
 
@@ -27,6 +29,7 @@ async def init_db():
 
             await db.execute("DROP TABLE IF EXISTS accounts")
             await db.execute("DROP TABLE IF EXISTS services")
+            await db.execute("DROP TABLE IF EXISTS categories")
             await db.execute("DROP TABLE IF EXISTS users")
             await db.execute("DROP TABLE IF EXISTS orders")
             await db.commit()
@@ -54,11 +57,20 @@ async def init_db():
             pass
 
         await db.execute("""
+            CREATE TABLE IF NOT EXISTS categories (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT UNIQUE NOT NULL,
+                created_at INTEGER NOT NULL
+            )
+        """)
+
+        await db.execute("""
             CREATE TABLE IF NOT EXISTS services (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT UNIQUE NOT NULL,
                 base_price REAL NOT NULL,
-                type TEXT NOT NULL DEFAULT 'text'
+                type TEXT NOT NULL DEFAULT 'text',
+                category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL
             )
         """)
 
@@ -67,6 +79,9 @@ async def init_db():
                 columns = [row["name"] for row in await cursor.fetchall()]
                 if columns and "type" not in columns:
                     await db.execute("ALTER TABLE services ADD COLUMN type TEXT NOT NULL DEFAULT 'text'")
+                    await db.commit()
+                if columns and "category_id" not in columns:
+                    await db.execute("ALTER TABLE services ADD COLUMN category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL")
                     await db.commit()
         except Exception:
             pass
@@ -150,6 +165,12 @@ async def init_db():
                 await db.execute("ALTER TABLE support_tickets ADD COLUMN reply_text TEXT;")
             if "replied_at" not in columns:
                 await db.execute("ALTER TABLE support_tickets ADD COLUMN replied_at TEXT;")
+
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_accounts_service_sold ON accounts(service_id, is_sold)")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_orders_user ON orders(user_id)")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_orders_purchased_at ON orders(purchased_at)")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_tickets_user_status ON support_tickets(user_id, status)")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_promo_activations ON promo_activations(promo_id, user_id)")
 
         await db.commit()
 
@@ -319,12 +340,12 @@ async def get_service_by_id(service_id: int) -> Optional[Dict[str, Any]]:
             row = await cursor.fetchone()
             return dict(row) if row else None
 
-async def create_service(name: str, base_price: float, service_type: str = 'text') -> int:
-    """Создает новый сервис с указанным типом (text или file)."""
+async def create_service(name: str, base_price: float, service_type: str = 'text', category_id: Optional[int] = None) -> int:
+    """Создает новый сервис с указанным типом (text или file) и категорией."""
     async with aiosqlite.connect(DB_PATH) as db:
         cursor = await db.execute(
-            "INSERT INTO services (name, base_price, type) VALUES (?, ?, ?)",
-            (name.strip(), base_price, service_type)
+            "INSERT INTO services (name, base_price, type, category_id) VALUES (?, ?, ?, ?)",
+            (name.strip(), base_price, service_type, category_id)
         )
         await db.commit()
         return cursor.lastrowid
@@ -579,8 +600,6 @@ async def get_all_user_ids() -> List[int]:
             return [row[0] for row in rows]
 
 async def increment_support_stats(user_id: int):
-    """Увеличивает счетчик обращений в поддержку и обновляет дату последнего обращения по МСК."""
-    import datetime
     tz_msk = datetime.timezone(datetime.timedelta(hours=3))
     now_msk = datetime.datetime.now(tz_msk)
     date_str = now_msk.strftime("%d.%m.%Y %H:%M:%S")
@@ -605,8 +624,6 @@ async def has_open_ticket(user_id: int) -> bool:
             return row is not None
 
 async def create_support_ticket(user_id: int, username: Optional[str], message_text: Optional[str], media_type: str, file_id: Optional[str]) -> int:
-    """Создает новое обращение в поддержку и возвращает его ID."""
-    import datetime
     tz_msk = datetime.timezone(datetime.timedelta(hours=3))
     now_msk = datetime.datetime.now(tz_msk)
     date_str = now_msk.strftime("%d.%m.%Y %H:%M:%S")
@@ -651,8 +668,6 @@ async def update_ticket_status(ticket_id: int, status: str):
         await db.commit()
 
 async def save_ticket_reply(ticket_id: int, reply_text: str):
-    """Сохраняет ответ администратора, дату ответа по МСК и меняет статус на replied."""
-    import datetime
     tz_msk = datetime.timezone(datetime.timedelta(hours=3))
     now_msk = datetime.datetime.now(tz_msk)
     replied_at = now_msk.strftime("%d.%m.%Y %H:%M:%S")
@@ -691,16 +706,6 @@ async def get_user_by_username(username: str) -> Optional[Dict[str, Any]]:
             row = await cursor.fetchone()
             return dict(row) if row else None
 
-async def get_user_purchases_count(user_id: int) -> int:
-    """Возвращает общее количество купленных аккаунтов пользователем."""
-    async with aiosqlite.connect(DB_PATH) as db:
-        async with db.execute(
-            "SELECT COALESCE(SUM(quantity), 0) FROM orders WHERE user_id = ?",
-            (user_id,)
-        ) as cursor:
-            row = await cursor.fetchone()
-            return row[0] if row else 0
-
 async def get_user_purchases_history(user_id: int, limit: int = 10) -> List[Dict[str, Any]]:
     """Возвращает историю последних N покупок пользователя."""
     async with aiosqlite.connect(DB_PATH) as db:
@@ -713,3 +718,77 @@ async def get_user_purchases_history(user_id: int, limit: int = 10) -> List[Dict
         """, (user_id, limit)) as cursor:
             rows = await cursor.fetchall()
             return [dict(row) for row in rows]
+
+# ============ Category Management ============
+
+async def create_category(name: str) -> int:
+    """Создает новую категорию и возвращает её ID."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute(
+            "INSERT INTO categories (name, created_at) VALUES (?, ?)",
+            (name.strip(), int(time.time()))
+        )
+        await db.commit()
+        return cursor.lastrowid
+
+async def get_all_categories() -> List[Dict[str, Any]]:
+    """Возвращает список всех категорий."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute("SELECT * FROM categories ORDER BY name ASC") as cursor:
+            rows = await cursor.fetchall()
+            return [dict(row) for row in rows]
+
+async def get_category_by_id(category_id: int) -> Optional[Dict[str, Any]]:
+    """Возвращает категорию по ID."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute("SELECT * FROM categories WHERE id = ?", (category_id,)) as cursor:
+            row = await cursor.fetchone()
+            return dict(row) if row else None
+
+async def update_category_name(category_id: int, new_name: str):
+    """Обновляет название категории."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE categories SET name = ? WHERE id = ?",
+            (new_name.strip(), category_id)
+        )
+        await db.commit()
+
+async def delete_category(category_id: int):
+    """Удаляет категорию (товары становятся без категории)."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("PRAGMA foreign_keys = ON;")
+        await db.execute("DELETE FROM categories WHERE id = ?", (category_id,))
+        await db.commit()
+
+async def get_services_by_category(category_id: int) -> List[Dict[str, Any]]:
+    """Возвращает список сервисов в указанной категории."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM services WHERE category_id = ? ORDER BY name ASC",
+            (category_id,)
+        ) as cursor:
+            rows = await cursor.fetchall()
+            return [dict(row) for row in rows]
+
+async def get_services_without_category() -> List[Dict[str, Any]]:
+    """Возвращает список сервисов без категории."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM services WHERE category_id IS NULL ORDER BY name ASC"
+        ) as cursor:
+            rows = await cursor.fetchall()
+            return [dict(row) for row in rows]
+
+async def assign_service_to_category(service_id: int, category_id: Optional[int]):
+    """Привязывает сервис к категории (или отвязывает, если category_id = None)."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE services SET category_id = ? WHERE id = ?",
+            (category_id, service_id)
+        )
+        await db.commit()

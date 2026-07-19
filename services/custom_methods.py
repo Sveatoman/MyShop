@@ -2,6 +2,9 @@ from aiogram.methods import TelegramMethod
 from aiogram.types import Message
 from typing import Union, Dict, Any, Optional
 
+from keyboards.theme import themed
+
+
 class SendCustomMessage(TelegramMethod[Message]):
     __returning__ = Message
     __api_method__ = "sendMessage"
@@ -10,6 +13,11 @@ class SendCustomMessage(TelegramMethod[Message]):
     text: str
     parse_mode: str = "HTML"
     reply_markup: Optional[Dict[str, Any]] = None
+
+    def model_post_init(self, __context: Any) -> None:
+        if self.reply_markup is not None:
+            self.reply_markup = themed(self.reply_markup)
+
 
 class SendCustomPhoto(TelegramMethod[Message]):
     __returning__ = Message
@@ -21,6 +29,11 @@ class SendCustomPhoto(TelegramMethod[Message]):
     parse_mode: str = "HTML"
     reply_markup: Optional[Dict[str, Any]] = None
 
+    def model_post_init(self, __context: Any) -> None:
+        if self.reply_markup is not None:
+            self.reply_markup = themed(self.reply_markup)
+
+
 class EditCustomMessageText(TelegramMethod[Union[Message, bool]]):
     __returning__ = Union[Message, bool]
     __api_method__ = "editMessageText"
@@ -31,6 +44,11 @@ class EditCustomMessageText(TelegramMethod[Union[Message, bool]]):
     parse_mode: str = "HTML"
     reply_markup: Optional[Dict[str, Any]] = None
 
+    def model_post_init(self, __context: Any) -> None:
+        if self.reply_markup is not None:
+            self.reply_markup = themed(self.reply_markup)
+
+
 class EditCustomMessageMedia(TelegramMethod[Union[Message, bool]]):
     __returning__ = Union[Message, bool]
     __api_method__ = "editMessageMedia"
@@ -39,3 +57,7 @@ class EditCustomMessageMedia(TelegramMethod[Union[Message, bool]]):
     message_id: int
     media: Dict[str, Any]
     reply_markup: Optional[Dict[str, Any]] = None
+
+    def model_post_init(self, __context: Any) -> None:
+        if self.reply_markup is not None:
+            self.reply_markup = themed(self.reply_markup)
