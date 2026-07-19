@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import logging
 import aiosqlite
 from typing import Optional
@@ -127,38 +128,33 @@ async def send_admin_panel(target, stats: dict, edit: bool = False):
     open_tickets = stats.get("open_tickets_count", 0)
 
     if edit:
-        has_media = hasattr(target, "photo") and target.photo
-        if has_media:
-            try:
-                await target.bot(EditCustomMessageMedia(
-                    chat_id=target.chat.id,
-                    message_id=target.message_id,
-                    media={"type": "photo", "media": IMG_ADMIN, "caption": text, "parse_mode": "HTML"},
-                    reply_markup=get_admin_menu(open_tickets)
-                ))
-                return
-            except Exception:
-                pass
-
+        try:
+            await target.edit_text(text, parse_mode="HTML", reply_markup=get_admin_menu(open_tickets))
+            return
+        except Exception:
+            pass
+        try:
+            await target.edit_caption(caption=text, parse_mode="HTML", reply_markup=get_admin_menu(open_tickets))
+            return
+        except Exception:
+            pass
         try:
             await target.delete()
         except Exception:
             pass
-        await target.bot(SendCustomPhoto(
+        await target.bot.send_message(
             chat_id=target.chat.id,
-            photo=IMG_ADMIN,
-            caption=text,
+            text=text,
             parse_mode="HTML",
             reply_markup=get_admin_menu(open_tickets)
-        ))
+        )
     else:
-        await target.bot(SendCustomPhoto(
+        await target.bot.send_message(
             chat_id=target.chat.id,
-            photo=IMG_ADMIN,
-            caption=text,
+            text=text,
             parse_mode="HTML",
             reply_markup=get_admin_menu(open_tickets)
-        ))
+        )
 
 @router.message(Command("admin"), F.from_user.id.in_(ADMIN_IDS))
 async def cmd_admin(message: Message, state: FSMContext):
@@ -1262,8 +1258,6 @@ async def process_user_info_purchase_history(callback: CallbackQuery):
     if not purchases:
         await callback.answer("❌ У этого пользователя нет покупок.", show_alert=True)
         return
-
-    import datetime
 
     text_lines = [f"<b><tg-emoji emoji-id=\"5875206779196935950\">📋</tg-emoji> Последние 10 покупок пользователя (ID: <code>{user_id}</code>):</b>"]
     for i, o in enumerate(purchases, 1):
