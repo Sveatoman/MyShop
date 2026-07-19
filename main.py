@@ -27,7 +27,6 @@ async def main():
     dp.include_router(user_router)
 
     logger.info("Запуск Telegram-бота магазина аккаунтов...")
-
     await bot.delete_webhook(drop_pending_updates=True)
 
     # polling with auto-restart on connection errors

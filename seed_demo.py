@@ -10,130 +10,130 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import database
 
 CATEGORIES = [
-    "Подписки",
-    "Программное обеспечение",
-    "Цифровые услуги",
+    "AI-сервисы",
+    "VPN и безопасность",
+    "Облачные хранилища",
 ]
 
 SERVICES = [
     {
-        "name": "Подписка Premium 1 месяц",
-        "base_price": 2.99,
+        "name": "Google Gemini Pro — 18 месяцев",
+        "base_price": 29.99,
         "type": "text",
-        "category": "Подписки",
+        "category": "AI-сервисы",
         "description": (
-            "⭐ <b>Что входит в товар:</b>\n"
-            "• Активационный ключ подписки Premium на 1 месяц\n"
+            "🤖 <b>Google Gemini Pro — подписка 18 месяцев</b>\n"
+            "• Активационный код для Google Gemini Advanced\n"
+            "• Формат: <code>код активации</code>\n"
+            "• Полный доступ к Gemini Pro, 1 ТБ в Google One\n"
+            "• Привязка к вашему Google-аккаунту, поддержка 24 ч"
+        ),
+        "accounts": [
+            "GEM-PRO-18M-7FK2-XNRA",
+            "GEM-PRO-18M-9PL4-BVTC",
+            "GEM-PRO-18M-3QW8-DMEY",
+            "GEM-PRO-18M-6HJ1-KSGF",
+            "GEM-PRO-18M-2UT5-WNPZ",
+        ],
+    },
+    {
+        "name": "ChatGPT Plus — 12 месяцев",
+        "base_price": 49.99,
+        "type": "text",
+        "category": "AI-сервисы",
+        "description": (
+            "🤖 <b>ChatGPT Plus — подписка 12 месяцев</b>\n"
+            "• Код активации подписки ChatGPT Plus (OpenAI)\n"
+            "• Формат: <code>код активации</code>\n"
+            "• GPT-4o, приоритетный доступ, DALL·E, Advanced Data Analysis\n"
+            "• Мгновенная доставка, поддержка при активации"
+        ),
+        "accounts": [
+            "CGPT-PLUS-12M-AX4R-9FKD",
+            "CGPT-PLUS-12M-BN7T-3HWQ",
+            "CGPT-PLUS-12M-CP2M-6JVL",
+            "CGPT-PLUS-12M-DK8S-1YNB",
+            "CGPT-PLUS-12M-EW5G-4ZPC",
+        ],
+    },
+    {
+        "name": "NordVPN — 24 месяца",
+        "base_price": 19.99,
+        "type": "text",
+        "category": "VPN и безопасность",
+        "description": (
+            "🔒 <b>NordVPN — подписка 24 месяца</b>\n"
+            "• Лицензионный ключ NordVPN на 2 года\n"
             "• Формат: <code>ключ активации</code>\n"
-            "• Неограниченный доступ ко всем функциям платформы\n"
-            "• Поддержка при активации в течение 24 часов"
+            "• 6 устройств одновременно, 5800+ серверов\n"
+            "• Threat Protection, Kill Switch, без логов"
         ),
         "accounts": [
-            "PREM-1M-AAAA-1111",
-            "PREM-1M-BBBB-2222",
-            "PREM-1M-CCCC-3333",
-            "PREM-1M-DDDD-4444",
-            "PREM-1M-EEEE-5555",
+            "NORD-24M-KF82-QXVW-A1",
+            "NORD-24M-PL37-TNRB-B2",
+            "NORD-24M-WS94-HCJD-C3",
+            "NORD-24M-MX61-YGKE-D4",
+            "NORD-24M-BV45-ZUFP-E5",
         ],
     },
     {
-        "name": "Подписка Premium 3 месяца",
-        "base_price": 7.99,
+        "name": "Surfshark VPN — 12 месяцев",
+        "base_price": 12.99,
         "type": "text",
-        "category": "Подписки",
+        "category": "VPN и безопасность",
         "description": (
-            "⭐ <b>Что входит в товар:</b>\n"
-            "• Активационный ключ подписки Premium на 3 месяца\n"
-            "• Формат: <code>ключ активации</code>\n"
-            "• Полный доступ ко всем функциям на 90 дней\n"
-            "• Поддержка при активации в течение 24 часов"
+            "🔒 <b>Surfshark VPN — подписка 12 месяцев</b>\n"
+            "• Код активации Surfshark на 1 год\n"
+            "• Формат: <code>код активации</code>\n"
+            "• Безлимит устройств, CleanWeb, MultiHop\n"
+            "• 3200+ серверов в 100 странах"
         ),
         "accounts": [
-            "PREM-3M-AAAA-1111",
-            "PREM-3M-BBBB-2222",
-            "PREM-3M-CCCC-3333",
-            "PREM-3M-DDDD-4444",
-            "PREM-3M-EEEE-5555",
+            "SHARK-12M-QN84-FXWT-01",
+            "SHARK-12M-RK27-GVML-02",
+            "SHARK-12M-TJ53-HPDS-03",
+            "SHARK-12M-UW96-YBCN-04",
+            "SHARK-12M-XE41-ZARQ-05",
         ],
     },
     {
-        "name": "Лицензия Software Basic",
-        "base_price": 4.50,
+        "name": "Google One 2 ТБ — 12 месяцев",
+        "base_price": 17.99,
         "type": "text",
-        "category": "Программное обеспечение",
+        "category": "Облачные хранилища",
         "description": (
-            "💻 <b>Что входит в товар:</b>\n"
-            "• Лицензионный ключ активации программного обеспечения (Basic)\n"
-            "• Формат: <code>серийный номер</code>\n"
-            "• Лицензия на 1 устройство, бессрочная\n"
-            "• Инструкция по активации прилагается"
+            "☁️ <b>Google One 2 ТБ — подписка 12 месяцев</b>\n"
+            "• Код активации Google One (2 ТБ хранилища)\n"
+            "• Формат: <code>код активации</code>\n"
+            "• Google Drive, Gmail, Google Photos — общее пространство\n"
+            "• Семейный доступ до 5 участников"
         ),
         "accounts": [
-            "SW-BASIC-XXXX-1111-AAAA",
-            "SW-BASIC-XXXX-2222-BBBB",
-            "SW-BASIC-XXXX-3333-CCCC",
-            "SW-BASIC-XXXX-4444-DDDD",
-            "SW-BASIC-XXXX-5555-EEEE",
+            "GONE-2TB-12M-AF73-NXQK",
+            "GONE-2TB-12M-BH29-PWRL",
+            "GONE-2TB-12M-CJ85-SVTM",
+            "GONE-2TB-12M-DM41-UXWN",
+            "GONE-2TB-12M-EQ67-ZYAP",
         ],
     },
     {
-        "name": "Лицензия Software Pro",
-        "base_price": 9.99,
+        "name": "iCloud+ 200 ГБ — 6 месяцев",
+        "base_price": 8.99,
         "type": "text",
-        "category": "Программное обеспечение",
+        "category": "Облачные хранилища",
         "description": (
-            "💻 <b>Что входит в товар:</b>\n"
-            "• Лицензионный ключ активации программного обеспечения (Pro)\n"
-            "• Формат: <code>серийный номер</code>\n"
-            "• Лицензия на 3 устройства, бессрочная\n"
-            "• Расширенный функционал и приоритетная поддержка"
+            "☁️ <b>iCloud+ 200 ГБ — подписка 6 месяцев</b>\n"
+            "• Подарочный код iCloud+ (200 ГБ) на 6 месяцев\n"
+            "• Формат: <code>код погашения</code>\n"
+            "• Private Relay, Hide My Email, HomeKit Secure Video\n"
+            "• Активация через Apple ID"
         ),
         "accounts": [
-            "SW-PRO-XXXX-1111-AAAA",
-            "SW-PRO-XXXX-2222-BBBB",
-            "SW-PRO-XXXX-3333-CCCC",
-            "SW-PRO-XXXX-4444-DDDD",
-            "SW-PRO-XXXX-5555-EEEE",
-        ],
-    },
-    {
-        "name": "Пакет цифровых услуг Starter",
-        "base_price": 1.99,
-        "type": "text",
-        "category": "Цифровые услуги",
-        "description": (
-            "🎁 <b>Что входит в товар:</b>\n"
-            "• Доступ к пакету цифровых услуг уровня Starter\n"
-            "• Формат: <code>логин:пароль</code>\n"
-            "• Включает базовый набор инструментов и сервисов\n"
-            "• Техническая поддержка и замена при сбое в течение 24 часов"
-        ),
-        "accounts": [
-            "starter_001:StPass#001",
-            "starter_002:StPass#002",
-            "starter_003:StPass#003",
-            "starter_004:StPass#004",
-            "starter_005:StPass#005",
-        ],
-    },
-    {
-        "name": "Пакет цифровых услуг Business",
-        "base_price": 14.99,
-        "type": "text",
-        "category": "Цифровые услуги",
-        "description": (
-            "🏢 <b>Что входит в товар:</b>\n"
-            "• Доступ к пакету цифровых услуг уровня Business\n"
-            "• Формат: <code>логин:пароль</code>\n"
-            "• Расширенный функционал для бизнес-задач\n"
-            "• Приоритетная поддержка и гарантия замены 48 часов"
-        ),
-        "accounts": [
-            "business_001:BizPass#001",
-            "business_002:BizPass#002",
-            "business_003:BizPass#003",
-            "business_004:BizPass#004",
-            "business_005:BizPass#005",
+            "ICLD-200G-6M-XKR4-92TF",
+            "ICLD-200G-6M-YNW7-83QG",
+            "ICLD-200G-6M-ZPV1-65MH",
+            "ICLD-200G-6M-AQS8-47DJ",
+            "ICLD-200G-6M-BTU3-18CK",
         ],
     },
 ]
