@@ -1322,3 +1322,19 @@ async def process_user_support_message(message: Message, state: FSMContext):
         parse_mode="HTML",
         reply_markup=success_kb
     ))
+
+@router.message()
+async def fallback_message(message: Message, state: FSMContext):
+    current_state = await state.get_state()
+    if current_state is not None:
+        return
+    await message.bot(SendCustomPhoto(
+        chat_id=message.chat.id,
+        photo=IMG_MAIN_MENU,
+        caption=(
+            f'<b><tg-emoji emoji-id="5258260149037965799">💼</tg-emoji> Добро пожаловать в Funeral Shop, {message.from_user.full_name}!</b>\n\n'
+            "Используй кнопки меню ниже для навигации:"
+        ),
+        parse_mode="HTML",
+        reply_markup=get_main_menu()
+    ))
