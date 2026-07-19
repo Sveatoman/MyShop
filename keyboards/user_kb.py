@@ -138,6 +138,7 @@ def get_payment_systems_kb() -> dict:
         "inline_keyboard": [
             [{"text": "🤖 CryptoBot", "callback_data": "pay_cryptobot"}],
             [{"text": "🚀 xRocket", "callback_data": "pay_xrocket"}],
+            [{"text": "💳 Platega", "callback_data": "pay_platega"}],
             [{"text": "Назад в профиль", "callback_data": "user_profile", "icon_custom_emoji_id": "5877536313623711363"}]
         ]
     })

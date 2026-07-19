@@ -675,7 +675,8 @@ async def process_buy_service_select(callback: CallbackQuery, state: FSMContext)
                 "type": "photo",
                 "media": IMG_BUY,
                 "caption": f'<tg-emoji emoji-id="5877485980901971030">📊</tg-emoji> <b>Вы выбрали:</b> <b>{service["name"]}</b>\n'
-                           f'<tg-emoji emoji-id="5776219138917668486">📈</tg-emoji> <b>Цена за 1 шт:</b> <code>${service["base_price"]:.2f}</code>\n'
+                           + (f'\n{service["description"]}\n\n' if service.get("description") else "\n")
+                           + f'<tg-emoji emoji-id="5776219138917668486">📈</tg-emoji> <b>Цена за 1 шт:</b> <code>${service["base_price"]:.2f}</code>\n'
                            f'<tg-emoji emoji-id="5956561916573782596">📄</tg-emoji> <b>Доступно:</b> <code>{len(accounts)}</code> <b>шт.</b>\n\n'
                            f'<b><tg-emoji emoji-id="5879841310902324730">✏️</tg-emoji> Введи количество файлов, которое хочешь приобрести:</b>',
                 "parse_mode": "HTML"
@@ -725,7 +726,8 @@ async def process_buy_service_select(callback: CallbackQuery, state: FSMContext)
         media={
             "type": "photo",
             "media": IMG_BUY,
-            "caption": f'<tg-emoji emoji-id="5877485980901971030">📊</tg-emoji> <b>Выбери категорию отлёжки для {service["name"]}:</b>',
+            "caption": f'<tg-emoji emoji-id="5877485980901971030">📊</tg-emoji> <b>Выбери категорию отлёжки для {service["name"]}:</b>'
+                       + (f'\n\n{service["description"]}' if service.get("description") else ""),
             "parse_mode": "HTML"
         },
         reply_markup=get_categories_keyboard(service_id, active_categories, back_callback=back_callback)
@@ -1045,6 +1047,32 @@ async def process_amount(message: Message, state: FSMContext):
         reply_markup=get_payment_systems_kb()
     ))
     await state.set_state(TopUpState.choose_system)
+
+@router.callback_query(TopUpState.choose_system, F.data == "pay_platega")
+async def process_payment_platega(callback: CallbackQuery, state: FSMContext):
+    """Заглушка Platega — платёжная система ещё не подключена."""
+    await callback.answer()
+    await callback.message.bot(EditCustomMessageMedia(
+        chat_id=callback.message.chat.id,
+        message_id=callback.message.message_id,
+        media={
+            "type": "photo",
+            "media": IMG_PROFILE,
+            "caption": (
+                "⏳ <b>Оплата через Platega временно недоступна.</b>\n\n"
+                "Мы подключаем платёжную систему — совсем скоро она заработает.\n"
+                "Пожалуйста, выбери другой способ оплаты или попробуй позже."
+            ),
+            "parse_mode": "HTML"
+        },
+        reply_markup={
+            "inline_keyboard": [[{
+                "text": "Назад к выбору способа оплаты",
+                "callback_data": "top_up_balance",
+                "icon_custom_emoji_id": "5877536313623711363"
+            }]]
+        }
+    ))
 
 @router.callback_query(TopUpState.choose_system, F.data.in_({"pay_cryptobot", "pay_xrocket"}))
 async def process_payment_system(callback: CallbackQuery, state: FSMContext):

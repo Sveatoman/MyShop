@@ -70,7 +70,8 @@ async def init_db():
                 name TEXT UNIQUE NOT NULL,
                 base_price REAL NOT NULL,
                 type TEXT NOT NULL DEFAULT 'text',
-                category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL
+                category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL,
+                description TEXT DEFAULT NULL
             )
         """)
 
@@ -82,6 +83,10 @@ async def init_db():
                     await db.commit()
                 if columns and "category_id" not in columns:
                     await db.execute("ALTER TABLE services ADD COLUMN category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL")
+                    await db.commit()
+                if columns and "description" not in columns:
+                    await db.execute("ALTER TABLE services ADD COLUMN description TEXT DEFAULT NULL")
+                    await db.commit()
                     await db.commit()
         except Exception:
             pass
@@ -340,12 +345,12 @@ async def get_service_by_id(service_id: int) -> Optional[Dict[str, Any]]:
             row = await cursor.fetchone()
             return dict(row) if row else None
 
-async def create_service(name: str, base_price: float, service_type: str = 'text', category_id: Optional[int] = None) -> int:
-    """Создает новый сервис с указанным типом (text или file) и категорией."""
+async def create_service(name: str, base_price: float, service_type: str = 'text', category_id: Optional[int] = None, description: Optional[str] = None) -> int:
+    """Создает новый сервис."""
     async with aiosqlite.connect(DB_PATH) as db:
         cursor = await db.execute(
-            "INSERT INTO services (name, base_price, type, category_id) VALUES (?, ?, ?, ?)",
-            (name.strip(), base_price, service_type, category_id)
+            "INSERT INTO services (name, base_price, type, category_id, description) VALUES (?, ?, ?, ?, ?)",
+            (name.strip(), base_price, service_type, category_id, description)
         )
         await db.commit()
         return cursor.lastrowid
