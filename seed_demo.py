@@ -10,130 +10,130 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import database
 
 CATEGORIES = [
-    "Социальные сети",
-    "Мессенджеры",
-    "E-commerce",
+    "Подписки",
+    "Программное обеспечение",
+    "Цифровые услуги",
 ]
 
 SERVICES = [
     {
-        "name": "Аккаунты Instagram",
-        "base_price": 1.50,
+        "name": "Подписка Premium 1 месяц",
+        "base_price": 2.99,
         "type": "text",
-        "category": "Социальные сети",
+        "category": "Подписки",
         "description": (
-            "📱 <b>Что входит в товар:</b>\n"
-            "• Готовый аккаунт Instagram с заполненным профилем\n"
-            "• Формат: <code>логин:пароль:почта:пароль_почты</code>\n"
-            "• Аккаунты прошли верификацию, не имеют ограничений\n"
-            "• Гарантия замены в течение 24 часов при техническом сбое"
+            "⭐ <b>Что входит в товар:</b>\n"
+            "• Активационный ключ подписки Premium на 1 месяц\n"
+            "• Формат: <code>ключ активации</code>\n"
+            "• Неограниченный доступ ко всем функциям платформы\n"
+            "• Поддержка при активации в течение 24 часов"
         ),
         "accounts": [
-            "user_insta1:Pass@1234:mail1@gmail.com:MailPass1",
-            "user_insta2:Pass@5678:mail2@gmail.com:MailPass2",
-            "user_insta3:Pass@9012:mail3@gmail.com:MailPass3",
-            "user_insta4:Pass@3456:mail4@gmail.com:MailPass4",
-            "user_insta5:Pass@7890:mail5@gmail.com:MailPass5",
+            "PREM-1M-AAAA-1111",
+            "PREM-1M-BBBB-2222",
+            "PREM-1M-CCCC-3333",
+            "PREM-1M-DDDD-4444",
+            "PREM-1M-EEEE-5555",
         ],
     },
     {
-        "name": "Аккаунты TikTok",
-        "base_price": 2.00,
+        "name": "Подписка Premium 3 месяца",
+        "base_price": 7.99,
         "type": "text",
-        "category": "Социальные сети",
+        "category": "Подписки",
         "description": (
-            "🎵 <b>Что входит в товар:</b>\n"
-            "• Готовый аккаунт TikTok с историей активности\n"
+            "⭐ <b>Что входит в товар:</b>\n"
+            "• Активационный ключ подписки Premium на 3 месяца\n"
+            "• Формат: <code>ключ активации</code>\n"
+            "• Полный доступ ко всем функциям на 90 дней\n"
+            "• Поддержка при активации в течение 24 часов"
+        ),
+        "accounts": [
+            "PREM-3M-AAAA-1111",
+            "PREM-3M-BBBB-2222",
+            "PREM-3M-CCCC-3333",
+            "PREM-3M-DDDD-4444",
+            "PREM-3M-EEEE-5555",
+        ],
+    },
+    {
+        "name": "Лицензия Software Basic",
+        "base_price": 4.50,
+        "type": "text",
+        "category": "Программное обеспечение",
+        "description": (
+            "💻 <b>Что входит в товар:</b>\n"
+            "• Лицензионный ключ активации программного обеспечения (Basic)\n"
+            "• Формат: <code>серийный номер</code>\n"
+            "• Лицензия на 1 устройство, бессрочная\n"
+            "• Инструкция по активации прилагается"
+        ),
+        "accounts": [
+            "SW-BASIC-XXXX-1111-AAAA",
+            "SW-BASIC-XXXX-2222-BBBB",
+            "SW-BASIC-XXXX-3333-CCCC",
+            "SW-BASIC-XXXX-4444-DDDD",
+            "SW-BASIC-XXXX-5555-EEEE",
+        ],
+    },
+    {
+        "name": "Лицензия Software Pro",
+        "base_price": 9.99,
+        "type": "text",
+        "category": "Программное обеспечение",
+        "description": (
+            "💻 <b>Что входит в товар:</b>\n"
+            "• Лицензионный ключ активации программного обеспечения (Pro)\n"
+            "• Формат: <code>серийный номер</code>\n"
+            "• Лицензия на 3 устройства, бессрочная\n"
+            "• Расширенный функционал и приоритетная поддержка"
+        ),
+        "accounts": [
+            "SW-PRO-XXXX-1111-AAAA",
+            "SW-PRO-XXXX-2222-BBBB",
+            "SW-PRO-XXXX-3333-CCCC",
+            "SW-PRO-XXXX-4444-DDDD",
+            "SW-PRO-XXXX-5555-EEEE",
+        ],
+    },
+    {
+        "name": "Пакет цифровых услуг Starter",
+        "base_price": 1.99,
+        "type": "text",
+        "category": "Цифровые услуги",
+        "description": (
+            "🎁 <b>Что входит в товар:</b>\n"
+            "• Доступ к пакету цифровых услуг уровня Starter\n"
             "• Формат: <code>логин:пароль</code>\n"
-            "• Аккаунты не забанены, прошли проверку на работоспособность\n"
-            "• Замена при невозможности входа в течение 24 часов"
+            "• Включает базовый набор инструментов и сервисов\n"
+            "• Техническая поддержка и замена при сбое в течение 24 часов"
         ),
         "accounts": [
-            "tiktok_user1:TkPass@111",
-            "tiktok_user2:TkPass@222",
-            "tiktok_user3:TkPass@333",
-            "tiktok_user4:TkPass@444",
-            "tiktok_user5:TkPass@555",
+            "starter_001:StPass#001",
+            "starter_002:StPass#002",
+            "starter_003:StPass#003",
+            "starter_004:StPass#004",
+            "starter_005:StPass#005",
         ],
     },
     {
-        "name": "Аккаунты Telegram",
-        "base_price": 3.50,
+        "name": "Пакет цифровых услуг Business",
+        "base_price": 14.99,
         "type": "text",
-        "category": "Мессенджеры",
+        "category": "Цифровые услуги",
         "description": (
-            "💬 <b>Что входит в товар:</b>\n"
-            "• Аккаунт Telegram, зарегистрированный на реальный номер\n"
-            "• Формат: <code>номер:API_ID:API_HASH:session_string</code>\n"
-            "• Аккаунт не имеет ограничений SpamBlock\n"
-            "• Поддержка 24/7 при возникновении вопросов"
+            "🏢 <b>Что входит в товар:</b>\n"
+            "• Доступ к пакету цифровых услуг уровня Business\n"
+            "• Формат: <code>логин:пароль</code>\n"
+            "• Расширенный функционал для бизнес-задач\n"
+            "• Приоритетная поддержка и гарантия замены 48 часов"
         ),
         "accounts": [
-            "+79001234001:12345:abcdefgh:session_str_001",
-            "+79001234002:12346:abcdefgi:session_str_002",
-            "+79001234003:12347:abcdefgj:session_str_003",
-            "+79001234004:12348:abcdefgk:session_str_004",
-            "+79001234005:12349:abcdefgl:session_str_005",
-        ],
-    },
-    {
-        "name": "Аккаунты WhatsApp",
-        "base_price": 2.50,
-        "type": "text",
-        "category": "Мессенджеры",
-        "description": (
-            "📞 <b>Что входит в товар:</b>\n"
-            "• Готовый аккаунт WhatsApp с привязкой к номеру\n"
-            "• Формат: <code>номер:пароль_резервной_копии</code>\n"
-            "• Аккаунты без блокировок, готовы к использованию\n"
-            "• Гарантия работоспособности 24 часа"
-        ),
-        "accounts": [
-            "+79002345001:WaPass#001",
-            "+79002345002:WaPass#002",
-            "+79002345003:WaPass#003",
-            "+79002345004:WaPass#004",
-            "+79002345005:WaPass#005",
-        ],
-    },
-    {
-        "name": "Аккаунты Amazon",
-        "base_price": 5.00,
-        "type": "text",
-        "category": "E-commerce",
-        "description": (
-            "🛒 <b>Что входит в товар:</b>\n"
-            "• Аккаунт Amazon с историей покупок\n"
-            "• Формат: <code>email:пароль</code>\n"
-            "• Аккаунты зарегистрированы на реальные данные\n"
-            "• Привязана платёжная карта (проверена на работоспособность)"
-        ),
-        "accounts": [
-            "buyer_amz1@gmail.com:AmzPass@001",
-            "buyer_amz2@gmail.com:AmzPass@002",
-            "buyer_amz3@gmail.com:AmzPass@003",
-            "buyer_amz4@gmail.com:AmzPass@004",
-            "buyer_amz5@gmail.com:AmzPass@005",
-        ],
-    },
-    {
-        "name": "Аккаунты eBay",
-        "base_price": 4.00,
-        "type": "text",
-        "category": "E-commerce",
-        "description": (
-            "📦 <b>Что входит в товар:</b>\n"
-            "• Аккаунт eBay с подтверждённым email\n"
-            "• Формат: <code>email:пароль</code>\n"
-            "• Рейтинг покупателя от 10 отзывов\n"
-            "• Поддержка и замена при проблемах в течение 24 часов"
-        ),
-        "accounts": [
-            "ebay_buyer1@mail.com:EbayPass@001",
-            "ebay_buyer2@mail.com:EbayPass@002",
-            "ebay_buyer3@mail.com:EbayPass@003",
-            "ebay_buyer4@mail.com:EbayPass@004",
-            "ebay_buyer5@mail.com:EbayPass@005",
+            "business_001:BizPass#001",
+            "business_002:BizPass#002",
+            "business_003:BizPass#003",
+            "business_004:BizPass#004",
+            "business_005:BizPass#005",
         ],
     },
 ]
